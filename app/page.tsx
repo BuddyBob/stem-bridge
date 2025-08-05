@@ -1,101 +1,297 @@
-import Image from "next/image";
+import Link from "next/link"
+import Image from "next/image"
+import { ArrowRight, Search, ExternalLink, Calendar } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { EventCard } from "@/components/event-card"
+import { EditableContent } from "@/components/editable-content"
+import { supabase } from "@/lib/supabase"
 
-export default function Home() {
+async function getUpcomingEvents() {
+  const today = new Date().toISOString().split("T")[0]
+
+  const { data: events, error } = await supabase
+    .from("events")
+    .select("*")
+    .gte("date", today)
+    .order("date", { ascending: true })
+    .limit(4)
+
+  if (error) {
+    console.error("Error fetching events:", error)
+    return []
+  }
+
+  return events || []
+}
+
+export default async function HomePage() {
+  const upcomingEvents = await getUpcomingEvents()
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen">
+      {/* Banner Section */}
+      <section className="w-full">
+        <div className="relative w-full h-64 md:h-80 lg:h-96">
+          <Image
+            src="/banner.jpg"
+            alt="STEM Bridge Banner"
+            fill
+            className="object-cover"
+            priority
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </section>
+
+      {/* Hero Section */}
+      <section className="py-20" style={{ backgroundColor: '#e1cfe7' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">        <div className="text-center">
+          <EditableContent
+            contentKey="hero-title"
+            className="text-5xl md:text-6xl font-bold mb-6"
+            style={{ color: '#8a427a' }}
+          >
+            Students Helping{" "}
+            <span style={{ color: '#2c6d0d' }}>
+              Students
+            </span>
+          </EditableContent>
+          <EditableContent
+            contentKey="hero-description"
+            className="text-xl mb-8 max-w-3xl mx-auto"
+            style={{ color: '#8a427a' }}
+          >
+            Join our community of young innovators! Discover hands-on STEM workshops, coding bootcamps, and robotics
+            adventures designed by students, for students.
+          </EditableContent>
+            <Link href="/events">
+              <Button
+                size="lg"
+                className="text-white font-semibold py-4 px-8 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                style={{ backgroundColor: '#8cbcb6' }}
+              >
+                Explore Events
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Virtual Learning Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <EditableContent
+                contentKey="virtual-learning-title"
+                className="text-4xl font-bold mb-6"
+                style={{ color: '#8a427a' }}
+              >
+                Learn From Anywhere
+              </EditableContent>
+              <EditableContent
+                contentKey="virtual-learning-description"
+                className="text-xl mb-6"
+                style={{ color: '#2c6d0d' }}
+              >
+                Join students from around the world in our interactive virtual workshops. No matter where you are, 
+                you can be part of our growing STEM community.
+              </EditableContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#8cbcb6' }}></div>
+                  <span style={{ color: '#8a427a' }}>Interactive live sessions with real-time Q&A</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#8cbcb6' }}></div>
+                  <span style={{ color: '#8a427a' }}>Small group breakout rooms for hands-on practice</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#8cbcb6' }}></div>
+                  <span style={{ color: '#8a427a' }}>Connect with peers and build lasting friendships</span>
+                </div>
+              </div>
+            </div>
+            <div className="relative h-96 rounded-lg overflow-hidden shadow-xl">
+              <Image
+                src="/studentzoom.jpg"
+                alt="Students learning together online"
+                fill
+                className="object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-20" style={{ backgroundColor: '#8a427a' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4">How It Works</h2>
+            <p className="text-xl text-white">Getting started is easy! Follow these simple steps.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center group">
+              <div className="w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform"
+                   style={{ backgroundColor: '#8cbcb6' }}>
+                <Search className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">1. Find</h3>
+              <p className="text-white">
+                Browse our upcoming STEM events and workshops. Filter by topic, format, or date to find what interests
+                you most.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform"
+                   style={{ backgroundColor: '#2c6d0d' }}>
+                <ExternalLink className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">2. Sign Up</h3>
+              <p className="text-white">
+                Click "Sign Up" to register through our partner platforms. We use trusted services like Google Forms and
+                Calendly.
+              </p>
+            </div>
+
+            <div className="text-center group">
+              <div className="w-20 h-20 rounded-lg flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform"
+                   style={{ backgroundColor: '#8cbcb6' }}>
+                <Calendar className="w-10 h-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4">3. Attend</h3>
+              <p className="text-white">
+                Join us for an amazing learning experience! Meet other students and dive into hands-on STEM activities.
+              </p>
+            </div>
+          </div>
+
+          {/* Add photo showcase */}
+          <div className="mt-16 grid md:grid-cols-2 gap-8">
+            <div className="relative h-64 rounded-lg overflow-hidden">
+              <Image
+                src="/AMERICANED_MC2_026.jpg"
+                alt="Students learning together"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div className="relative h-64 rounded-lg overflow-hidden">
+              <Image
+                src="/stem.jpeg"
+                alt="STEM activities"
+                fill
+                className="object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Upcoming Events */}
+      {upcomingEvents.length > 0 && (
+        <section className="py-20" style={{ backgroundColor: '#e1cfe7' }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-bold mb-4" style={{ color: '#8a427a' }}>Upcoming Events</h2>
+              <p className="text-xl" style={{ color: '#2c6d0d' }}>Don't miss out on these exciting learning opportunities!</p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+              {upcomingEvents.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+
+            <div className="text-center">
+              <Link href="/events">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="border-2 rounded-lg bg-transparent hover:bg-purple-50"
+                  style={{ 
+                    borderColor: '#8a427a', 
+                    color: '#8a427a' 
+                  }}
+                >
+                  View All Events
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Student Success Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="relative h-96 rounded-lg overflow-hidden shadow-xl">
+              <Image
+                src="/AMERICANED_MC2_026.jpg"
+                alt="Students engaged in learning"
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div>
+              <EditableContent
+                contentKey="empowering-title"
+                className="text-4xl font-bold mb-6"
+                style={{ color: '#8a427a' }}
+              >
+                Empowering the Next Generation
+              </EditableContent>
+              <EditableContent
+                contentKey="empowering-description"
+                className="text-xl mb-6"
+                style={{ color: '#2c6d0d' }}
+              >
+                Our student-led workshops create an environment where young minds can explore, 
+                experiment, and excel in STEM fields. We believe in learning by doing.
+              </EditableContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: '#e1cfe7' }}>
+                  <EditableContent
+                    contentKey="students-reached-number"
+                    className="text-3xl font-bold"
+                    style={{ color: '#8a427a' }}
+                  >
+                    500+
+                  </EditableContent>
+                  <EditableContent
+                    contentKey="students-reached-label"
+                    className="text-sm"
+                    style={{ color: '#2c6d0d' }}
+                  >
+                    Students Reached
+                  </EditableContent>
+                </div>
+                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: '#e1cfe7' }}>
+                  <EditableContent
+                    contentKey="workshops-hosted-number"
+                    className="text-3xl font-bold"
+                    style={{ color: '#8a427a' }}
+                  >
+                    50+
+                  </EditableContent>
+                  <EditableContent
+                    contentKey="workshops-hosted-label"
+                    className="text-sm"
+                    style={{ color: '#2c6d0d' }}
+                  >
+                    Workshops Hosted
+                  </EditableContent>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-  );
+  )
 }
