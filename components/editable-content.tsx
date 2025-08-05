@@ -99,34 +99,22 @@ export function EditableContent({ contentKey, children, className, style }: Edit
 
   const loadContent = async () => {
     try {
-      // First try database for latest content
+      // Always try database first for the most up-to-date content
       const { data, error } = await supabase
         .from('site_content')
         .select('content')
         .eq('key', contentKey)
-        .single()
+        .maybeSingle()
       
-      // Handle 406 error or table access issues gracefully
-      if (error && (error.code === 'PGRST116' || error.message?.includes('406') || error.details?.includes('Not Acceptable'))) {
-        const localContent = localStorage.getItem(`content_${contentKey}`)
-        if (localContent) {
-          setContent(localContent)
-          setOriginalContent(localContent)
-        } else {
-          const textContent = extractTextFromChildren(children)
-          setContent(textContent)
-          setOriginalContent(textContent)
-        }
-        return
-      }
-      
-      if (data?.content) {
+      if (!error && data?.content) {
+        // Database content found - use it and clear local storage
         setContent(data.content)
         setOriginalContent(data.content)
+        localStorage.removeItem(`content_${contentKey}`)
         return
       }
-
-      // Fallback to localStorage if no database content
+      
+      // If database fails or no content, check localStorage
       const localContent = localStorage.getItem(`content_${contentKey}`)
       if (localContent) {
         setContent(localContent)
@@ -134,12 +122,14 @@ export function EditableContent({ contentKey, children, className, style }: Edit
         return
       }
 
-      // Finally, extract text content from children if no saved content
+      // Finally, use the default content from children
       const textContent = extractTextFromChildren(children)
       setContent(textContent)
       setOriginalContent(textContent)
+      
     } catch (error) {
-      // If table doesn't exist, try localStorage then fallback to children
+      console.warn(`Load error for ${contentKey}:`, error)
+      // Fallback to localStorage then children
       const localContent = localStorage.getItem(`content_${contentKey}`)
       if (localContent) {
         setContent(localContent)
@@ -165,31 +155,36 @@ export function EditableContent({ contentKey, children, className, style }: Edit
   }, [])
 
   const handleSave = useCallback(async () => {
-    if (!content.trim()) return
+    if (!isAdmin) return
     
     setLoading(true)
     setError(null)
     
     try {
-      // Try to save to database first
+      // Use upsert which handles both insert and update automatically
       const { error } = await supabase
         .from('site_content')
         .upsert({
           key: contentKey,
           content: content.trim(),
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'key'  // Specify the conflict resolution column
         })
       
       if (error) {
+        console.error('Database save error:', error)
         setError('Database save failed, saved locally')
         localStorage.setItem(`content_${contentKey}`, content.trim())
       } else {
-        localStorage.setItem(`content_${contentKey}`, content.trim())
+        // Clear any previous local storage since database save succeeded
+        localStorage.removeItem(`content_${contentKey}`)
       }
       
       setOriginalContent(content.trim())
       setIsEditing(false)
     } catch (error) {
+      console.error('Save error:', error)
       setError('Connection failed, saved locally')
       localStorage.setItem(`content_${contentKey}`, content.trim())
       setOriginalContent(content.trim())
@@ -197,7 +192,7 @@ export function EditableContent({ contentKey, children, className, style }: Edit
     } finally {
       setLoading(false)
     }
-  }, [content, contentKey])
+  }, [content, contentKey, isAdmin])
 
   const handleCancel = useCallback(() => {
     setContent(originalContent)
