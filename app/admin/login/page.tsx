@@ -78,14 +78,7 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      console.log("Entered invite code:", inviteCode)
-      console.log("Expected invite code:", process.env.NEXT_PUBLIC_ADMIN_INVITE_CODE)
-      
-      if (inviteCode !== process.env.NEXT_PUBLIC_ADMIN_INVITE_CODE) {
-        throw new Error("Invalid invite code")
-      }
-
-      // Call our API to verify admin and bypass email confirmation
+      // Server-side verification of invite code
       const response = await fetch("/api/admin/verify", {
         method: "POST",
         headers: {

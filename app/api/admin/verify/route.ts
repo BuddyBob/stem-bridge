@@ -5,8 +5,8 @@ export async function POST(request: NextRequest) {
   try {
     const { email, inviteCode } = await request.json()
 
-    // Verify invite code
-    if (inviteCode !== process.env.NEXT_PUBLIC_ADMIN_INVITE_CODE) {
+    // Verify invite code server-side
+    if (inviteCode !== process.env.ADMIN_INVITE_CODE) {
       return NextResponse.json(
         { error: "Invalid invite code" },
         { status: 400 }
@@ -31,15 +31,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update user profile to admin
-    const { error: updateError } = await supabaseServer
+    // Create admin profile (upsert to handle existing profiles)
+    const { error: profileError } = await supabaseServer
       .from("profiles")
-      .update({ is_admin: true })
-      .eq("id", user.id)
+      .upsert({ 
+        id: user.id, 
+        is_admin: true,
+        created_at: new Date().toISOString()
+      })
 
-    if (updateError) {
+    if (profileError) {
       return NextResponse.json(
-        { error: "Failed to update admin status" },
+        { error: "Failed to create admin profile" },
         { status: 500 }
       )
     }

@@ -59,25 +59,38 @@ export function EditableContent({ contentKey, children, className, style }: Edit
     try {
       const { data: { session } } = await supabase.auth.getSession()
       
-      if (session?.user) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', session.user.id)
-          .single()
-        
-        if (error) {
-          setIsAdmin(false)
-          setAdminCheckComplete(true)
-          return
-        }
-        
-        const adminStatus = profile?.is_admin || false
-        setIsAdmin(adminStatus)
-      } else {
+      if (!session?.user) {
         setIsAdmin(false)
+        setAdminCheckComplete(true)
+        return
       }
+
+      // Try to get profile with error handling
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', session.user.id)
+      
+      if (error) {
+        // If we can't fetch profile, default to non-admin but still complete check
+        setIsAdmin(false)
+        setAdminCheckComplete(true)
+        return
+      }
+      
+      // Handle case where user has no profile (non-admin user)
+      if (!profiles || profiles.length === 0) {
+        // No profile = not an admin = can't edit
+        setIsAdmin(false)
+        setAdminCheckComplete(true)
+        return
+      }
+      
+      const profile = profiles[0]
+      const adminStatus = profile?.is_admin || false
+      setIsAdmin(adminStatus)
       setAdminCheckComplete(true)
+      
     } catch (error) {
       setIsAdmin(false)
       setAdminCheckComplete(true)
@@ -87,11 +100,25 @@ export function EditableContent({ contentKey, children, className, style }: Edit
   const loadContent = async () => {
     try {
       // First try database for latest content
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('site_content')
         .select('content')
         .eq('key', contentKey)
         .single()
+      
+      // Handle 406 error or table access issues gracefully
+      if (error && (error.code === 'PGRST116' || error.message?.includes('406') || error.details?.includes('Not Acceptable'))) {
+        const localContent = localStorage.getItem(`content_${contentKey}`)
+        if (localContent) {
+          setContent(localContent)
+          setOriginalContent(localContent)
+        } else {
+          const textContent = extractTextFromChildren(children)
+          setContent(textContent)
+          setOriginalContent(textContent)
+        }
+        return
+      }
       
       if (data?.content) {
         setContent(data.content)

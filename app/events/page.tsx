@@ -26,18 +26,14 @@ export default function EventsPage() {
 
   const fetchEvents = async () => {
     try {
-      console.log("Fetching events...")
       const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false })
 
       if (error) {
-        console.error("Supabase error:", error)
         throw error
       }
       
-      console.log("Events fetched:", data?.length || 0, "events")
       setEvents(data || [])
     } catch (error) {
-      console.error("Error fetching events:", error)
       // Set an empty array so the loading state ends
       setEvents([])
     } finally {
