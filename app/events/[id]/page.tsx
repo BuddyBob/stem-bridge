@@ -31,7 +31,7 @@ export default async function EventPage({ params }: EventPageProps) {
   const eventDate = new Date(event.date)
   const isUpcoming = eventDate >= new Date()
 
-  const formatIcon = {
+  const formatIcon: Record<string, any> = {
     virtual: Monitor,
     in_person: MapPin,
     hybrid: Users,

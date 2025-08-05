@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
 import { Edit, Save, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ export function EditableContent({ contentKey, children, className, style }: Edit
   const [originalContent, setOriginalContent] = useState("")
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     checkAdminStatus()
@@ -36,7 +37,6 @@ export function EditableContent({ contentKey, children, className, style }: Edit
           filter: `key=eq.${contentKey}`
         }, 
         (payload) => {
-          console.log('Real-time content update:', payload)
           if (payload.new && typeof payload.new === 'object' && 'content' in payload.new) {
             const newContent = (payload.new as any).content
             setSyncing(true)
@@ -58,7 +58,6 @@ export function EditableContent({ contentKey, children, className, style }: Edit
   const checkAdminStatus = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      console.log('Checking admin status, session:', !!session?.user)
       
       if (session?.user) {
         const { data: profile, error } = await supabase
@@ -68,23 +67,18 @@ export function EditableContent({ contentKey, children, className, style }: Edit
           .single()
         
         if (error) {
-          console.error('Error fetching profile:', error)
           setIsAdmin(false)
           setAdminCheckComplete(true)
           return
         }
         
-        console.log('Profile data:', profile)
         const adminStatus = profile?.is_admin || false
         setIsAdmin(adminStatus)
-        console.log('Admin status set to:', adminStatus)
       } else {
-        console.log('No session found - user is not logged in')
         setIsAdmin(false)
       }
       setAdminCheckComplete(true)
     } catch (error) {
-      console.error('Error checking admin status:', error)
       setIsAdmin(false)
       setAdminCheckComplete(true)
     }
@@ -119,7 +113,6 @@ export function EditableContent({ contentKey, children, className, style }: Edit
       setOriginalContent(textContent)
     } catch (error) {
       // If table doesn't exist, try localStorage then fallback to children
-      console.log('Database unavailable, trying localStorage for', contentKey)
       const localContent = localStorage.getItem(`content_${contentKey}`)
       if (localContent) {
         setContent(localContent)
@@ -132,7 +125,7 @@ export function EditableContent({ contentKey, children, className, style }: Edit
     }
   }
 
-  const extractTextFromChildren = (children: React.ReactNode): string => {
+  const extractTextFromChildren = useCallback((children: React.ReactNode): string => {
     if (typeof children === 'string') return children
     if (typeof children === 'number') return String(children)
     if (React.isValidElement(children)) {
@@ -142,55 +135,53 @@ export function EditableContent({ contentKey, children, className, style }: Edit
       return children.map(extractTextFromChildren).join(' ')
     }
     return ''
-  }
+  }, [])
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!content.trim()) return
     
     setLoading(true)
+    setError(null)
+    
     try {
       // Try to save to database first
       const { error } = await supabase
         .from('site_content')
         .upsert({
           key: contentKey,
-          content: content,
+          content: content.trim(),
           updated_at: new Date().toISOString()
         })
       
       if (error) {
-        console.log('Database save failed:', error.message)
-        // Fallback to localStorage
-        localStorage.setItem(`content_${contentKey}`, content)
-        alert('Saved locally. Database may not be available.')
+        setError('Database save failed, saved locally')
+        localStorage.setItem(`content_${contentKey}`, content.trim())
       } else {
-        console.log('Content saved to database successfully')
-        // Also save to localStorage as backup
-        localStorage.setItem(`content_${contentKey}`, content)
+        localStorage.setItem(`content_${contentKey}`, content.trim())
       }
       
-      setOriginalContent(content)
+      setOriginalContent(content.trim())
       setIsEditing(false)
     } catch (error) {
-      console.error('Error saving content:', error)
-      // Still allow local editing via localStorage
-      localStorage.setItem(`content_${contentKey}`, content)
-      setOriginalContent(content)
+      setError('Connection failed, saved locally')
+      localStorage.setItem(`content_${contentKey}`, content.trim())
+      setOriginalContent(content.trim())
       setIsEditing(false)
-      alert('Saved locally only. Database connection failed.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [content, contentKey])
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setContent(originalContent)
     setIsEditing(false)
-  }
+    setError(null)
+  }, [originalContent])
 
-  const handleEdit = () => {
+  const handleEdit = useCallback(() => {
     setIsEditing(true)
-  }
+    setError(null)
+  }, [])
 
   if (!adminCheckComplete) {
     // Don't show anything until we've checked admin status
@@ -211,16 +202,10 @@ export function EditableContent({ contentKey, children, className, style }: Edit
 
   return (
     <div className="relative group">
-      {/* Debug indicator for admin mode */}
-      {isAdmin && (
-        <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1 rounded z-50">
-          ADMIN
-        </div>
-      )}
       {/* Syncing indicator */}
       {syncing && (
-        <div className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1 rounded z-50 animate-pulse">
-          SYNC
+        <div className="absolute top-0 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded-br-md z-50 animate-pulse">
+          Updating...
         </div>
       )}
       {isEditing ? (
@@ -228,24 +213,31 @@ export function EditableContent({ contentKey, children, className, style }: Edit
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full p-3 border rounded-lg resize-none min-h-[100px]"
+            className="w-full p-3 border rounded-lg resize-none min-h-[100px] focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             style={{ ...style, backgroundColor: 'white', color: '#333' }}
+            placeholder="Enter content..."
           />
+          {error && (
+            <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
+              {error}
+            </div>
+          )}
           <div className="flex gap-2">
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={loading || !content.trim()}
+              className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
             >
               <Save className="w-4 h-4 mr-1" />
-              Save
+              {loading ? 'Saving...' : 'Save'}
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={handleCancel}
               disabled={loading}
+              className="disabled:opacity-50"
             >
               <X className="w-4 h-4 mr-1" />
               Cancel
@@ -259,7 +251,8 @@ export function EditableContent({ contentKey, children, className, style }: Edit
             size="sm"
             variant="ghost"
             onClick={handleEdit}
-            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-white"
+            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-white/90 hover:bg-white shadow-sm"
+            title="Edit content"
           >
             <Edit className="w-4 h-4" />
           </Button>
